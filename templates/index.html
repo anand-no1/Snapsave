@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snapsave - Anand GT</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: black;
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      overflow-x: hidden;
+      text-align: center;
+    }
+
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      top: 10vh;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 3em;
+      color: white;
+      text-shadow: 0 0 12px white, 0 0 30px cyan;
+      margin-bottom: 0;
+    }
+
+    p {
+      margin-top: 5px;
+      font-size: 14px;
+      color: #888;
+    }
+
+    .input-box {
+      width: 100%;
+      padding: 12px;
+      font-size: 1em;
+      border-radius: 10px;
+      border: none;
+      margin: 20px 0;
+      background-color: #111;
+      color: white;
+    }
+
+    button {
+      background: linear-gradient(90deg, #ff00cc, #3333ff);
+      color: white;
+      padding: 10px 20px;
+      font-size: 1em;
+      border: none;
+      border-radius: 12px;
+      text-shadow: 0 0 5px white;
+      cursor: pointer;
+    }
+
+    .quality-buttons {
+      margin-top: 20px;
+    }
+
+    .quality-buttons button {
+      display: inline-block;
+      margin: 6px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: linear-gradient(to right, #00c3ff, #7700ff);
+      color: white;
+      font-size: 0.9em;
+      border: none;
+      cursor: pointer;
+      transition: 0.3s ease;
+    }
+
+    img {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<div class="container">
+  <h1>Snapsave</h1>
+  <p>Created by Anand GT</p>
+
+  <input type="text" id="url" class="input-box" placeholder="Paste YouTube or Facebook link">
+  <br>
+  <button onclick="fetchInfo()">Fetch Video</button>
+
+  <div id="video-info"></div>
+</div>
+
+<script>
+  async function fetchInfo() {
+    const url = document.getElementById("url").value;
+    const infoDiv = document.getElementById("video-info");
+    infoDiv.innerHTML = "Processing...";
+
+    try {
+      const res = await fetch("/api/info", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ url })
+      });
+
+      const data = await res.json();
+
+      if (data.error) {
+        infoDiv.innerHTML = "Error: " + data.error;
+        return;
+      }
+
+      let qualityButtons = "";
+      data.formats.forEach(f => {
+        if (f.ext === "mp4") {
+          qualityButtons += `<button onclick="download('${url}', '${f.format_id}')">${f.resolution}p</button>`;
+        }
+      });
+
+      infoDiv.innerHTML = `
+        <h3>${data.title}</h3>
+        <img src="${data.thumbnail}" alt="Thumbnail"><br>
+        <div class="quality-buttons">${qualityButtons}</div>
+      `;
+    } catch (err) {
+      infoDiv.innerHTML = "Something went wrong!";
+    }
+  }
+
+  async function download(url, format_id) {
+    const res = await fetch("/api/download", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url, format_id }),
+    });
+
+    const blob = await res.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.download = "video.mp4";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // Falling particles
+  const canvas = document.getElementById("particles");
+  const ctx = canvas.getContext("2d");
+  let particles = [];
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+
+  for (let i = 0; i < 120; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 2 + 1,
+      d: Math.random() * 1
+    });
+  }
+
+  function drawParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    for (let i = 0; i < particles.length; i++) {
+      let p = particles[i];
+      ctx.moveTo(p.x, p.y);
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2, true);
+    }
+    ctx.fill();
+    moveParticles();
+  }
+
+  function moveParticles() {
+    for (let i = 0; i < particles.length; i++) {
+      let p = particles[i];
+      p.y += p.d;
+      if (p.y > canvas.height) {
+        particles[i] = {
+          x: Math.random() * canvas.width,
+          y: 0,
+          r: p.r,
+          d: p.d
+        };
+      }
+    }
+  }
+
+  setInterval(drawParticles, 30);
+</script>
+
+</body>
+</html>
